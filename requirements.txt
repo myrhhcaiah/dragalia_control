@@ -1,0 +1,5 @@
+pywin32
+pyminitouch
+tk
+pyautogui
+inputs
