@@ -291,7 +291,7 @@ def handle_input(controller_output, phone_input, joystick_handler):
         x, y = POSITIONS[position_name]
         phone_input.tap(x, y)
 
-    pressed = input_data.get_pressed()
+    pressed = input_data.get_pressed_dict()
     # left trigger and bumper are modifiers
     # neither is pressed -> skills
     if "LeftTrigger" not in pressed and "LeftBumper" not in pressed:

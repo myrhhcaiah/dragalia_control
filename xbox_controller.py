@@ -57,6 +57,15 @@ class InputData(object):
                 pressed.append(button)
         return pressed
 
+    def get_pressed_dict(self):
+        pressed = {}
+        for button in InputData.BUTTONS:
+            val = getattr(self, button)
+            if val != 0:
+                pressed[button] = True
+        return pressed
+
+
 
 # below is from: https://github.com/kevinhughes27/TensorKart/blob/master/record.py
 class XboxController(object):
