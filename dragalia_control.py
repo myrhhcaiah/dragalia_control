@@ -34,8 +34,9 @@ class JSONFile:
         return {}
 
 def set_device_globals():
-    global PHONE_RES
     global DRAGALIA_TOUCH_CENTER
+    global DRAGALIA_TOUCH_MAX
+    global PHONE_RES
     global POSITIONS
 
     size = AdbDevice.get_screen_resolution(SERIAL)['override_size']
@@ -60,8 +61,9 @@ def set_device_globals():
         original_w = positions["w"]
         original_h = positions["h"]
 
-        PHONE_RES = (original_w, original_h)
         DRAGALIA_TOUCH_CENTER = (original_w/2, original_h/2)
+        DRAGALIA_TOUCH_MAX = original_w * .40
+        PHONE_RES = (original_w, original_h)
         POSITIONS = positions
         print("-----------initial position data START")
         print(json.dumps(POSITIONS, sort_keys=True, indent=4))
@@ -168,14 +170,12 @@ class ScrcpyAdbDevice(AdbDevice):
         y2 = int(y * self.screen_h / PHONE_RES[1]) + self.left_y
         return (x2, y2)
 
-    def down(self, originx, originy, x, y, touch_id):
+    def down(self, x, y, touch_id):
         self.mouse_is_down = True
 
-        originx, originy = self.scale_xy(originx, originy)
-        pyautogui.moveTo(originx, originy)
-        pyautogui.mouseDown()
-        x, y = self.scale_xy(x,y)
+        x, y = self.scale_xy(x, y)
         pyautogui.moveTo(x, y)
+        pyautogui.mouseDown()
 
     def move(self, originx, originy, x, y, touch_id):
         if not self.mouse_is_down:
@@ -183,6 +183,7 @@ class ScrcpyAdbDevice(AdbDevice):
             pyautogui.moveTo(originx, originy)
             pyautogui.mouseDown()
             self.mouse_is_down = True
+            return
 
         x, y = self.scale_xy(x,y)
         pyautogui.moveTo(x, y)
@@ -216,39 +217,48 @@ class ScrcpyAdbDevice(AdbDevice):
         self.update_window()
 
 
+TOUCH_GRACE_PERIOD_MS = 0
 class JoystickHandler(object):
     def __init__(self, adb_device):
         self.adb_device = adb_device
         self.press_active = False
         self.touch_id = 1
+        self.last_touch_ms = 0
 
     def update(self, input_data):
+        now = current_milli_time()
+        if input_data.left_stick_tilted() or input_data.LeftThumb:
+            self.last_touch_ms = now
+
         if self.press_active:
             if input_data.left_stick_tilted():
-                x = DRAGALIA_TOUCH_CENTER[0] + input_data.LeftJoystickX * DRAGALIA_TOUCH_MAX
-                y = DRAGALIA_TOUCH_CENTER[1] - input_data.LeftJoystickY * DRAGALIA_TOUCH_MAX
-                self.adb_device.move(DRAGALIA_TOUCH_CENTER[0], DRAGALIA_TOUCH_CENTER[1], x, y, self.touch_id)
+                def easing(x):
+                    if x >=0 :
+                        return 1 - (1 - x) * (1 - x)
+                    else:
+                        nx = -x
+                        return -(1 - (1 - nx) * (1 - nx))
+                dx = easing(input_data.LeftJoystickX) * DRAGALIA_TOUCH_MAX
+                dy = -easing(input_data.LeftJoystickY) * DRAGALIA_TOUCH_MAX
+                self.adb_device.move(DRAGALIA_TOUCH_CENTER[0], DRAGALIA_TOUCH_CENTER[1], DRAGALIA_TOUCH_CENTER[0] + dx, DRAGALIA_TOUCH_CENTER[1] + dy, self.touch_id)
             elif input_data.LeftThumb:
                 x = DRAGALIA_TOUCH_CENTER[0]
                 y = DRAGALIA_TOUCH_CENTER[1]
                 self.adb_device.move(DRAGALIA_TOUCH_CENTER[0], DRAGALIA_TOUCH_CENTER[1], x, y, self.touch_id)
             else:
-                # end touch
-                self.adb_device.release(self.touch_id)
-                self.press_active = False
+                if now - self.last_touch_ms > TOUCH_GRACE_PERIOD_MS:
+                    # end touch
+                    self.adb_device.release(self.touch_id)
+                    self.press_active = False
         else:
-            touch_location = None
+            start_touch = False
             if input_data.left_stick_tilted():
-                x = DRAGALIA_TOUCH_CENTER[0] + input_data.LeftJoystickX * DRAGALIA_TOUCH_MAX
-                y = DRAGALIA_TOUCH_CENTER[1] - input_data.LeftJoystickY * DRAGALIA_TOUCH_MAX
-                touch_location = (x, y)
+                start_touch = True
             elif input_data.LeftThumb:
-                x = DRAGALIA_TOUCH_CENTER[0]
-                y = DRAGALIA_TOUCH_CENTER[1]
-                touch_location = (x, y)
-            if touch_location != None:
+                start_touch = True
+            if start_touch:
                 self.press_active = True
-                self.adb_device.down(DRAGALIA_TOUCH_CENTER[0], DRAGALIA_TOUCH_CENTER[1], touch_location[0], touch_location[1], self.touch_id)
+                self.adb_device.down(DRAGALIA_TOUCH_CENTER[0], DRAGALIA_TOUCH_CENTER[1], self.touch_id)
 
 
 def current_milli_time():
@@ -401,8 +411,6 @@ def start_controller():
     joystick_handler = JoystickHandler(phone_input)
     while True:
         handle_input(controller_output, phone_input, joystick_handler)
-        sleep(0.01)
-
 
 
 if __name__ == '__main__':
