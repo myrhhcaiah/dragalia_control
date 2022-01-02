@@ -141,11 +141,23 @@ class AdbDevice(object):
         Physical size: 1440x3040
         Override size: 1080x2280
         """
-        physical_wxh  = device_info[0].split(b': ')[1].split(b'x')
-        pw, ph = int(physical_wxh[0]), int(physical_wxh[1])
-        override_wxh  = device_info[1].split(b': ')[1].split(b'x')
-        ow, oh = int(override_wxh[0]), int(override_wxh[1])
-        return {"physical_size": (pw, ph), "override_size": (ow, oh)}
+        physical_size = None
+        override_size = None
+        for size in device_info:
+            if b': ' in size:
+                wxh_str  = size.split(b': ')[1].split(b'x')
+                w, h = int(wxh_str[0]), int(wxh_str[1])
+
+                if physical_size == None:
+                    physical_size = (w, h)
+                if override_size == None:
+                    override_size = (w, h)
+
+                if size.startswith(b"Physical"):
+                    physical_size = (w, h)
+                if size.startswith(b"Override"):
+                    override_size = (w, h)
+        return {"physical_size": physical_size, "override_size": override_size}
 
     def scale_xy(self, x, y):
         raise NotImplementedError()
