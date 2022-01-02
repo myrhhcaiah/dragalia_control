@@ -340,13 +340,28 @@ def handle_input(controller_output, phone_input, joystick_handler):
     if "Start" in pressed or "Back" in pressed:
         tap_position("MENU")
 
+    # flicking the right stick is a roll
     if input_data.right_stick_tilted():
+        # cooldown on flicks since they're actually quite slow compared to the polling rate
         now = current_milli_time()
         global LAST_SWIPE
         if now - LAST_SWIPE > SWIPE_COOLDOWN_MS:
             LAST_SWIPE = now
-            x = DRAGALIA_TOUCH_CENTER[0] + input_data.RightJoystickX * DRAGALIA_TOUCH_MAX * 3
-            y = DRAGALIA_TOUCH_CENTER[1] - input_data.RightJoystickY * DRAGALIA_TOUCH_MAX * 3
+
+            # all flicks are made equal
+            dx = input_data.RightJoystickX
+            dy = -input_data.RightJoystickY
+            if dx > 0:
+                dx = DRAGALIA_TOUCH_MAX
+            if dx < 0:
+                dx = -DRAGALIA_TOUCH_MAX
+            if dy > 0:
+                dy = DRAGALIA_TOUCH_MAX
+            if dy < 0:
+                dy = -DRAGALIA_TOUCH_MAX
+
+            x = DRAGALIA_TOUCH_CENTER[0] + dx
+            y = DRAGALIA_TOUCH_CENTER[1] + dy
             phone_input.swipe(DRAGALIA_TOUCH_CENTER[0], DRAGALIA_TOUCH_CENTER[1], x, y)
 
     if "RightBumper" in pressed:
