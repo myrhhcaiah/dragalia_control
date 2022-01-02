@@ -173,15 +173,19 @@ class ScrcpyAdbDevice(AdbDevice):
         y2 = int(y * int(self.screen_h) / PHONE_RES[1]) + self.left_y
         return (x2, y2)
 
-    def down(self, x, y, touch_id):
+    def down(self, originx, originy, x, y, touch_id):
         self.mouse_is_down = True
 
+        originx, originy = self.scale_xy(originx, originy)
+        pyautogui.moveTo(originx, originy)
+        pyautogui.mouseDown()
         x, y = self.scale_xy(x,y)
         pyautogui.moveTo(x, y)
-        pyautogui.mouseDown()
 
-    def move(self, x, y, touch_id):
+    def move(self, originx, originy, x, y, touch_id):
         if not self.mouse_is_down:
+            originx, originy = self.scale_xy(originx, originy)
+            pyautogui.moveTo(originx, originy)
             pyautogui.mouseDown()
             self.mouse_is_down = True
 
@@ -224,11 +228,11 @@ class JoystickHandler(object):
             if input_data.left_stick_tilted():
                 x = DRAGALIA_TOUCH_CENTER[0] + input_data.LeftJoystickX * DRAGALIA_TOUCH_MAX
                 y = DRAGALIA_TOUCH_CENTER[1] - input_data.LeftJoystickY * DRAGALIA_TOUCH_MAX
-                self.adb_device.move(x, y, self.touch_id)
+                self.adb_device.move(DRAGALIA_TOUCH_CENTER[0], DRAGALIA_TOUCH_CENTER[1], x, y, self.touch_id)
             elif input_data.LeftThumb:
                 x = DRAGALIA_TOUCH_CENTER[0]
                 y = DRAGALIA_TOUCH_CENTER[1]
-                self.adb_device.move(x, y, self.touch_id)
+                self.adb_device.move(DRAGALIA_TOUCH_CENTER[0], DRAGALIA_TOUCH_CENTER[1], x, y, self.touch_id)
             else:
                 # end touch
                 self.adb_device.release(self.touch_id)
@@ -245,7 +249,7 @@ class JoystickHandler(object):
                 touch_location = (x, y)
             if touch_location != None:
                 self.press_active = True
-                self.adb_device.down(touch_location[0], touch_location[1], self.touch_id)
+                self.adb_device.down(DRAGALIA_TOUCH_CENTER[0], DRAGALIA_TOUCH_CENTER[1], touch_location[0], touch_location[1], self.touch_id)
 
 
 def current_milli_time():
