@@ -7,6 +7,8 @@ import pyautogui
 from win32gui import GetForegroundWindow, FindWindow, GetWindowRect
 import time
 import sys
+import io
+import json
 
 
 SCRCPY_ROOT = os.path.join(os.path.dirname(os.path.realpath(__file__)), "scrcpy")
@@ -20,12 +22,58 @@ DRAGALIA_TOUCH_MAX = 200
 PHONE_RES = None
 POSITIONS = {}
 
+POSITIONS_JSON = os.path.join(os.path.dirname(os.path.realpath(__file__)), "positions.json")
 
+class JSONFile:
+    @staticmethod
+    def read_json(filename):
+        if os.path.exists(filename):
+            with open(filename, encoding='utf-8') as data_file:
+                data = json.load(data_file)
+                return data
+        return {}
 
 def set_device_globals(device="OTHER"):
     global PHONE_RES
     global DRAGALIA_TOUCH_CENTER
     global POSITIONS
+
+    size = AdbDevice.get_screen_resolution(SERIAL)['override_size']
+    ratio = f"{size[1]/size[0]:.3f}"
+    PHONE_RES = AdbDevice.get_screen_resolution(SERIAL)["physical_size"]
+    DRAGALIA_TOUCH_CENTER = (PHONE_RES[0]/2, PHONE_RES[1]/2)
+
+    json_data = JSONFile.read_json(POSITIONS_JSON)
+    if ratio in json_data:
+        print("using data from json")
+
+        positions = json_data[ratio]
+        keys = ["CENTER", "DRAGON", "MENU", "C1", "C2", "C3", "C4", "S1", "S2", "S3", "S4", "KSS1", "KSS2", "KSS3", "KSS4", "w", "h"]
+        for key in keys:
+            if key not in positions:
+                print(f"Missing {key} in position data. This may cause errors.")
+                if key in ["w", "h"]:
+                    print("missing data from json. please add your device's positioning info to positions.json")
+                    input("press enter to exit")
+                    sys.exit(1)
+                else:
+                    positions[key] = [10, 10]
+
+        original_w = positions["w"]
+        original_h = positions["h"]
+        def scale_xy(xy):
+            x, y = xy
+            x2 = int(x * PHONE_RES[0]/ original_w)
+            y2 = int(y * PHONE_RES[1]/ original_h)
+            return (x2, y2)
+        for p in positions:
+            if p not in ["w", "h", "NOTE"]:
+                POSITIONS[p] = scale_xy(positions[p])
+    else:
+        print("missing data from json. please add your device's positioning info to positions.json")
+        input("press enter to exit")
+        sys.exit(1)
+
     s9_res = (1080, 2220)
     s9_positions = {
                 "CENTER": (s9_res[0]/2, s9_res[1]/2),
@@ -53,7 +101,6 @@ def set_device_globals(device="OTHER"):
         DRAGALIA_TOUCH_CENTER = (PHONE_RES[0]/2, PHONE_RES[1]/2)
         POSITIONS = s9_positions
     else:
-
         PHONE_RES = AdbDevice.get_screen_resolution(SERIAL)["physical_size"]
         DRAGALIA_TOUCH_CENTER = (PHONE_RES[0]/2, PHONE_RES[1]/2)
         POSITIONS = {}
@@ -84,7 +131,7 @@ class AdbDevice(object):
 
     @classmethod
     def devices(cls, adbpath='adb'):
-        return [dev.split(b'\t')[0] for dev in subprocess.check_output([adbpath, 'devices']).splitlines() if dev.endswith(b'\tdevice')]
+        return [str(dev.split(b'\t')[0])[2:-1] for dev in subprocess.check_output([adbpath, 'devices']).splitlines() if dev.endswith(b'\tdevice')]
 
     @classmethod
     def get_screen_resolution(cls, serial, adbpath='adb'):
@@ -96,8 +143,8 @@ class AdbDevice(object):
         """
         physical_wxh  = device_info[0].split(b': ')[1].split(b'x')
         pw, ph = int(physical_wxh[0]), int(physical_wxh[1])
-        override_wxh  = device_info[0].split(b': ')[1].split(b'x')
-        ow, oh = int(physical_wxh[0]), int(physical_wxh[1])
+        override_wxh  = device_info[1].split(b': ')[1].split(b'x')
+        ow, oh = int(override_wxh[0]), int(override_wxh[1])
         return {"physical_size": (pw, ph), "override_size": (ow, oh)}
 
     def scale_xy(self, x, y):
@@ -328,21 +375,26 @@ def pick_device():
     window.title('Dragalia Control')
 
     window.columnconfigure(0, weight=1, minsize=100)
-    window.columnconfigure(1, weight=4, minsize=350)
+    window.columnconfigure(1, weight=4, minsize=500)
 
     attached_devices = AdbDevice.devices()
+    # append true resolutions
+    descriptive_devices = []
+    for device in attached_devices:
+        size = AdbDevice.get_screen_resolution(device)['override_size']
+        ratio = f"{size[1]/size[0]:.3f}"
+        descriptive_devices.append(f"{device} {size} - ratio {ratio}")
+
     tkinter.Label(window, text="Device").grid(row=0, sticky='w')
     device_variable = tkinter.StringVar(window)
     if attached_devices:
-        device_variable.set(attached_devices[0]) # default value
-    device_dropdown = tkinter.OptionMenu(window, device_variable, *attached_devices)
+        device_variable.set(descriptive_devices[0]) # default value
+    device_dropdown = tkinter.OptionMenu(window, device_variable, *descriptive_devices)
     device_dropdown.grid(row=0, column=1, sticky='nesw')
 
     def start():
         global SERIAL
-        serial_raw = str(device_variable.get())
-        if serial_raw.startswith("b'"):
-            serial_raw = serial_raw[2:-1]
+        serial_raw = str(device_variable.get()).split(" ")[0]
         SERIAL = serial_raw
         start_controller()
     def exit():
@@ -350,10 +402,10 @@ def pick_device():
 
     if attached_devices:
         run_button = tkinter.Button(window, text = 'Start', command=start)
-        run_button.grid(row=1, column=1, sticky="w")
+        run_button.grid(row=1, column=0, sticky="w")
     else:
         run_button = tkinter.Button(window, text = 'Error: No device detected', command=exit)
-        run_button.grid(row=1, column=1, sticky="w")
+        run_button.grid(row=1, column=0, sticky="w")
 
     window.mainloop()
 
