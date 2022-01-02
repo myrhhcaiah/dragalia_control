@@ -74,44 +74,6 @@ def set_device_globals(device="OTHER"):
         input("press enter to exit")
         sys.exit(1)
 
-    s9_res = (1080, 2220)
-    s9_positions = {
-                "CENTER": (s9_res[0]/2, s9_res[1]/2),
-                "DRAGON": (150, 1650),
-                "MENU": (1010, 165),
-                "C1": (87, 190),
-                "C2": (87, 300),
-                "C3": (87, 425),
-                "C4": (87, 530),
-                "S1": (384, 1900),
-                "S2": (600, 1900),
-                "S3": (780, 1900),
-                "S4": (950, 1900),
-                "KSS1": (216, 1420),
-                "KSS2": (440, 1420),
-                "KSS3": (640, 1420),
-                "KSS4": (880, 1420),
-                "KSS5": (216, 1640),
-                "KSS6": (440, 1640),
-                "KSS7": (640, 1640),
-                "KSS8": (880, 1640),
-    }
-    if device == "S9":
-        PHONE_RES = s9_res
-        DRAGALIA_TOUCH_CENTER = (PHONE_RES[0]/2, PHONE_RES[1]/2)
-        POSITIONS = s9_positions
-    else:
-        PHONE_RES = AdbDevice.get_screen_resolution(SERIAL)["physical_size"]
-        DRAGALIA_TOUCH_CENTER = (PHONE_RES[0]/2, PHONE_RES[1]/2)
-        POSITIONS = {}
-        def scale_xy(xy):
-            x, y = xy
-            x2 = int(x * PHONE_RES[0]/ s9_res[0])
-            y2 = int(y * PHONE_RES[1]/ s9_res[1])
-            return (x2, y2)
-        for p in s9_positions:
-            POSITIONS[p] = scale_xy(s9_positions[p])
-
 
 # below is inspired by http://ktnr74.blogspot.com/2013/06/emulating-touchscreen-interaction-with.html
 
