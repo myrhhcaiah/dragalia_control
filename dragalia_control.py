@@ -116,12 +116,11 @@ def set_device_globals(device="OTHER"):
 # below is inspired by http://ktnr74.blogspot.com/2013/06/emulating-touchscreen-interaction-with.html
 
 class AdbDevice(object):
-    def __init__(self, serial=None, adbpath='adb'):
+    def __init__(self, serial=None):
         self.serial = serial
-        self.adbpath = adbpath
 
     def adbshell(self, command):
-        args = [self.adbpath]
+        args = [ADB]
         if self.serial is not None:
             args.append('-s')
             args.append(self.serial)
@@ -130,12 +129,12 @@ class AdbDevice(object):
         return os.linesep.join(subprocess.check_output(args).split('\r\n')[0:-1])
 
     @classmethod
-    def devices(cls, adbpath='adb'):
-        return [str(dev.split(b'\t')[0])[2:-1] for dev in subprocess.check_output([adbpath, 'devices']).splitlines() if dev.endswith(b'\tdevice')]
+    def devices(cls):
+        return [str(dev.split(b'\t')[0])[2:-1] for dev in subprocess.check_output([ADB, 'devices']).splitlines() if dev.endswith(b'\tdevice')]
 
     @classmethod
-    def get_screen_resolution(cls, serial, adbpath='adb'):
-        device_info = subprocess.check_output([adbpath, '-s', f'{serial}', 'shell', 'wm size']).splitlines()
+    def get_screen_resolution(cls, serial):
+        device_info = subprocess.check_output([ADB, '-s', f'{serial}', 'shell', 'wm size']).splitlines()
         """
         Expected:
         Physical size: 1440x3040
@@ -179,8 +178,8 @@ class AdbDevice(object):
 
 
 class ScrcpyAdbDevice(AdbDevice):
-    def __init__(self, serial=None, adbpath='adb', window_title = "DRAGALIA"):
-        super().__init__(serial=serial, adbpath=adbpath)
+    def __init__(self, serial=None, window_title = "DRAGALIA"):
+        super().__init__(serial=serial)
         self.minitouch_device = None
         self.window_title = window_title
         self.update_window()
