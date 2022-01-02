@@ -2,7 +2,6 @@ from xbox_controller import XboxController
 import subprocess
 import os
 from time import sleep
-from pyminitouch import safe_connection, safe_device, MNTDevice, CommandBuilder
 import tkinter
 import pyautogui
 from win32gui import GetForegroundWindow, FindWindow, GetWindowRect
@@ -15,8 +14,6 @@ SCRCPY = os.path.join(SCRCPY_ROOT, "scrcpy.exe")
 ADB = os.path.join(SCRCPY_ROOT, "adb.exe")
 
 SERIAL = ""
-
-USE_MINITOUCH = False
 
 DRAGALIA_TOUCH_CENTER = None
 DRAGALIA_TOUCH_MAX = 200
@@ -120,50 +117,6 @@ class AdbDevice(object):
 
     def swipe(self, x, y, x2, y2):
         raise NotImplementedError()
-
-
-
-class MinitouchAdbDevice(AdbDevice):
-    def __init__(self, serial=None, adbpath='adb'):
-        super().__init__(serial=serial, adbpath=adbpath)
-        self.minitouch_device = None
-
-    def scale_xy(self, x, y):
-        x2 = int(x * int(self.minitouch_device.connection.max_x) / PHONE_RES[0])
-        y2 = int(y * int(self.minitouch_device.connection.max_y) / PHONE_RES[1])
-        return (x2, y2)
-
-    def down(self, x, y, touch_id):
-        x, y = self.scale_xy(x,y)
-        builder = CommandBuilder()
-        builder.down(touch_id, x, y, 50)
-        builder.commit()
-        builder.publish(self.minitouch_device.connection)
-
-    def move(self, x, y, touch_id):
-        x, y = self.scale_xy(x,y)
-        builder = CommandBuilder()
-        builder.move(touch_id, x, y, 50)
-        builder.commit()
-        builder.publish(self.minitouch_device.connection)
-
-    def release(self, touch_id):
-        builder = CommandBuilder()
-        builder.up(touch_id)
-        builder.commit()
-        builder.publish(self.minitouch_device.connection)
-
-    def tap(self, x, y):
-        x, y = self.scale_xy(x,y)
-        self.minitouch_device.tap([(x, y)])
-
-    def swipe(self, x, y, x2, y2):
-        x, y = self.scale_xy(x,y)
-        x2, y2 = self.scale_xy(x2,y2)
-        self.minitouch_device.ext_smooth_swipe([(x, y), (x2, y2)], duration=50, part=4)
-
-    def reset(self):
-        pass
 
 
 class ScrcpyAdbDevice(AdbDevice):
@@ -409,29 +362,18 @@ def start_controller():
     set_device_globals("OTHER")
     controller_output = XboxController()
 
-    if USE_MINITOUCH:
-        phone_input = MinitouchAdbDevice(serial = SERIAL)
-        joystick_handler = JoystickHandler(phone_input)
-        with safe_device(SERIAL) as minitouch_device:
-            print("max x: ", minitouch_device.connection.max_x)
-            print("max y: ", minitouch_device.connection.max_y)
-            phone_input.minitouch_device = minitouch_device
-            while True:
-                handle_input(controller_output, phone_input, joystick_handler)
-                sleep(0.01)
-    else:
-        REFRESH_HZ = 120
-        WINDOW_TITLE = "DRAGALIA"
-        pyautogui.PAUSE = 1 / REFRESH_HZ
-        pyautogui.FAILSAFE = True
+    REFRESH_HZ = 120
+    WINDOW_TITLE = "DRAGALIA"
+    pyautogui.PAUSE = 1 / REFRESH_HZ
+    pyautogui.FAILSAFE = True
 
-        subprocess.Popen([SCRCPY, "-s", SERIAL, "-m", "1080", "-b", "4M", "--window-title", WINDOW_TITLE], creationflags=subprocess.CREATE_NEW_CONSOLE)
+    subprocess.Popen([SCRCPY, "-s", SERIAL, "-m", "1080", "-b", "4M", "--window-title", WINDOW_TITLE], creationflags=subprocess.CREATE_NEW_CONSOLE)
 
-        phone_input = ScrcpyAdbDevice(serial = SERIAL, window_title = WINDOW_TITLE)
-        joystick_handler = JoystickHandler(phone_input)
-        while True:
-            handle_input(controller_output, phone_input, joystick_handler)
-            sleep(0.01)
+    phone_input = ScrcpyAdbDevice(serial = SERIAL, window_title = WINDOW_TITLE)
+    joystick_handler = JoystickHandler(phone_input)
+    while True:
+        handle_input(controller_output, phone_input, joystick_handler)
+        sleep(0.01)
 
 
 
