@@ -33,7 +33,7 @@ class JSONFile:
                 return data
         return {}
 
-def set_device_globals(device="OTHER"):
+def set_device_globals():
     global PHONE_RES
     global DRAGALIA_TOUCH_CENTER
     global POSITIONS
@@ -220,6 +220,7 @@ class ScrcpyAdbDevice(AdbDevice):
         self.mouse_is_down = False
 
     def reset(self):
+        set_device_globals()
         self.update_window()
 
 
@@ -394,7 +395,7 @@ def pick_device():
 
 
 def start_controller():
-    set_device_globals("OTHER")
+    set_device_globals()
     controller_output = XboxController()
 
     REFRESH_HZ = 120
