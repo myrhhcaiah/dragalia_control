@@ -69,6 +69,11 @@ def set_device_globals(device="OTHER"):
         for p in positions:
             if p not in ["w", "h", "NOTE"]:
                 POSITIONS[p] = scale_xy(positions[p])
+        POSITIONS["NOTE"] = positions["NOTE"]
+        POSITIONS["w"] = PHONE_RES[0]
+        POSITIONS["h"] = PHONE_RES[1]
+        print("-----------initial position data")
+        print(json.dumps(POSITIONS, sort_keys=True, indent=4))
     else:
         print("missing data from json. please add your device's positioning info to positions.json")
         input("press enter to exit")
@@ -142,14 +147,12 @@ class AdbDevice(object):
 class ScrcpyAdbDevice(AdbDevice):
     def __init__(self, serial=None, window_title = "DRAGALIA"):
         super().__init__(serial=serial)
-        self.minitouch_device = None
         self.window_title = window_title
         self.update_window()
         self.mouse_is_down = False
 
     def update_window(self):
         TITLE_OFFSET = 30
-        #wincenter_x, wincenter_y, screen_w, screen_h, left_x, left_y, right_x, right_y
         self.scr_win = 0
         attempts = 0
         while self.scr_win == 0:
@@ -197,7 +200,10 @@ class ScrcpyAdbDevice(AdbDevice):
         pyautogui.mouseUp()
 
     def tap(self, x, y):
+        print("--tap")
+        print(f"tap: physical phone coords ({x},{y})")
         x, y = self.scale_xy(x,y)
+        print(f"tap: desktop coords ({x},{y})")
         pyautogui.mouseUp()
         pyautogui.click(x, y)
         self.mouse_is_down = False
