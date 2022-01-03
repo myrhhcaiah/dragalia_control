@@ -278,6 +278,8 @@ def current_milli_time():
 
 SWIPE_COOLDOWN_MS = 20
 LAST_SWIPE = 0
+RIGHT_BUMPER_DOWN = False
+RIGHT_BUMPER_TOUCH_ID = 2
 def handle_input(controller_output, phone_input, joystick_handler):
     input_data = controller_output.read()
 
@@ -289,6 +291,17 @@ def handle_input(controller_output, phone_input, joystick_handler):
         phone_input.tap(x, y)
 
     pressed = input_data.get_pressed_dict()
+
+    global RIGHT_BUMPER_DOWN
+    if "RightBumper" in pressed:
+        RIGHT_BUMPER_DOWN = True
+        x, y = POSITIONS["CENTER"]
+        phone_input.down(x, y, RIGHT_BUMPER_TOUCH_ID)
+    elif RIGHT_BUMPER_DOWN:
+        RIGHT_BUMPER_DOWN = False
+        if len(pressed) == 0:
+            phone_input.release(RIGHT_BUMPER_TOUCH_ID)
+
     # left trigger and bumper are modifiers
     # neither is pressed -> skills
     if "LeftTrigger" not in pressed and "LeftBumper" not in pressed:
@@ -361,8 +374,6 @@ def handle_input(controller_output, phone_input, joystick_handler):
             y = DRAGALIA_TOUCH_CENTER[1] + dy
             phone_input.swipe(DRAGALIA_TOUCH_CENTER[0], DRAGALIA_TOUCH_CENTER[1], x, y)
 
-    if "RightBumper" in pressed:
-        tap_position("CENTER")
     if "RightTrigger" in pressed:
         phone_input.reset()
 
