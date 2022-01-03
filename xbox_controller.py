@@ -44,10 +44,10 @@ class InputData(object):
         return "\n".join(data)
 
     def left_stick_tilted(self):
-        return self.LeftJoystickY != 0 or self.LeftJoystickX != 0
+        return self.LeftJoystickY != 0.0 or self.LeftJoystickX != 0.0
 
     def right_stick_tilted(self):
-        return self.RightJoystickY != 0 or self.RightJoystickX != 0
+        return self.RightJoystickY != 0.0 or self.RightJoystickX != 0.0
 
     def get_pressed(self):
         pressed = []
@@ -103,14 +103,17 @@ class XboxController(object):
     def read(self): # return the buttons/triggers that you care about in this methode
         result = InputData()
 
-        if self.LeftJoystickY > DEAD_ZONE or self.LeftJoystickY < -DEAD_ZONE:
-            result.LeftJoystickY = self.LeftJoystickY
-        if self.LeftJoystickX > DEAD_ZONE or self.LeftJoystickX < -DEAD_ZONE:
-            result.LeftJoystickX = self.LeftJoystickX
-        if self.RightJoystickY > DEAD_ZONE or self.RightJoystickY < -DEAD_ZONE:
-            result.RightJoystickY = self.RightJoystickY
-        if self.RightJoystickX > DEAD_ZONE or self.RightJoystickX < -DEAD_ZONE:
-            result.RightJoystickX = self.RightJoystickX
+        result.LeftJoystickY = self.LeftJoystickY
+        result.LeftJoystickX = self.LeftJoystickX
+        result.RightJoystickY = self.RightJoystickY
+        result.RightJoystickX = self.RightJoystickX
+
+        if (self.LeftJoystickY < DEAD_ZONE and self.LeftJoystickY > -DEAD_ZONE) and (self.LeftJoystickX < DEAD_ZONE and self.LeftJoystickX > -DEAD_ZONE):
+            result.LeftJoystickY = 0
+            result.LeftJoystickX = 0
+        if (self.RightJoystickY < DEAD_ZONE and self.RightJoystickY > -DEAD_ZONE) and (self.RightJoystickX < DEAD_ZONE and self.RightJoystickX > -DEAD_ZONE):
+            result.RightJoystickY = 0
+            result.RightJoystickX = 0
 
         result.LeftTrigger = self.LeftTrigger
         result.RightTrigger = self.RightTrigger
