@@ -9,7 +9,7 @@ import time
 import sys
 import io
 import json
-
+import math
 
 SCRCPY_ROOT = os.path.join(os.path.dirname(os.path.realpath(__file__)), "scrcpy")
 SCRCPY = os.path.join(SCRCPY_ROOT, "scrcpy.exe")
@@ -62,7 +62,7 @@ def set_device_globals():
         original_h = positions["h"]
 
         DRAGALIA_TOUCH_CENTER = (original_w/2, original_h/2)
-        DRAGALIA_TOUCH_MAX = original_w * .40
+        DRAGALIA_TOUCH_MAX = original_w * .35
         PHONE_RES = (original_w, original_h)
         POSITIONS = positions
         print("-----------initial position data START")
@@ -198,6 +198,7 @@ class ScrcpyAdbDevice(AdbDevice):
         x, y = self.scale_xy(x,y)
         print(f"tap: desktop coords ({x},{y})")
         pyautogui.mouseUp()
+        pyautogui.moveTo(x, y)
         pyautogui.click(x, y)
         self.mouse_is_down = False
 
@@ -233,13 +234,23 @@ class JoystickHandler(object):
         if self.press_active:
             if input_data.left_stick_tilted():
                 def easing(x):
+                    if True:
+                        return x
                     if x >=0 :
                         return 1 - (1 - x) * (1 - x)
                     else:
                         nx = -x
                         return -(1 - (1 - nx) * (1 - nx))
-                dx = easing(input_data.LeftJoystickX) * DRAGALIA_TOUCH_MAX
-                dy = -easing(input_data.LeftJoystickY) * DRAGALIA_TOUCH_MAX
+                def squareToCircle(xSquare, ySquare):
+                    if True:
+                        return xSquare, ySquare
+                    # this is incredibly slow
+                    xCircle = xSquare * math.sqrt(1 - 0.5*ySquare**2)
+                    yCircle = ySquare * math.sqrt(1 - 0.5*xSquare**2)
+                    return xCircle, yCircle
+                cx, cy = squareToCircle(easing(input_data.LeftJoystickX), easing(input_data.LeftJoystickY))
+                dx = cx * DRAGALIA_TOUCH_MAX
+                dy = -cy * DRAGALIA_TOUCH_MAX # invert y
                 self.adb_device.move(DRAGALIA_TOUCH_CENTER[0], DRAGALIA_TOUCH_CENTER[1], DRAGALIA_TOUCH_CENTER[0] + dx, DRAGALIA_TOUCH_CENTER[1] + dy, self.touch_id)
             elif input_data.LeftThumb:
                 x = DRAGALIA_TOUCH_CENTER[0]
