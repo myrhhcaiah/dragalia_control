@@ -40,8 +40,6 @@ def set_device_globals():
 
     size = AdbDevice.get_screen_resolution(SERIAL)['override_size']
     ratio = f"{size[1]/size[0]:.3f}"
-    PHONE_RES = AdbDevice.get_screen_resolution(SERIAL)["physical_size"]
-    DRAGALIA_TOUCH_CENTER = (PHONE_RES[0]/2, PHONE_RES[1]/2)
 
     json_data = JSONFile.read_json(POSITIONS_JSON)
     if ratio in json_data:
@@ -61,19 +59,13 @@ def set_device_globals():
 
         original_w = positions["w"]
         original_h = positions["h"]
-        def scale_xy(xy):
-            x, y = xy
-            x2 = int(x * PHONE_RES[0]/ original_w)
-            y2 = int(y * PHONE_RES[1]/ original_h)
-            return (x2, y2)
-        for p in positions:
-            if p not in ["w", "h", "NOTE"]:
-                POSITIONS[p] = scale_xy(positions[p])
-        POSITIONS["NOTE"] = positions["NOTE"]
-        POSITIONS["w"] = PHONE_RES[0]
-        POSITIONS["h"] = PHONE_RES[1]
-        print("-----------initial position data")
+
+        PHONE_RES = (original_w, original_h)
+        DRAGALIA_TOUCH_CENTER = (original_w/2, original_h/2)
+        POSITIONS = positions
+        print("-----------initial position data START")
         print(json.dumps(POSITIONS, sort_keys=True, indent=4))
+        print("-----------initial position data END")
     else:
         print("missing data from json. please add your device's positioning info to positions.json")
         input("press enter to exit")
@@ -157,7 +149,7 @@ class ScrcpyAdbDevice(AdbDevice):
         attempts = 0
         while self.scr_win == 0:
             attempts += 1
-            if attempts > 7:
+            if attempts > 10:
                 raise ValueError("Could not detect scrcpy window")
 
             sleep(1.0)
@@ -172,8 +164,8 @@ class ScrcpyAdbDevice(AdbDevice):
         self.right_y = right_y
 
     def scale_xy(self, x, y):
-        x2 = int(x * int(self.screen_w) / PHONE_RES[0]) + self.left_x
-        y2 = int(y * int(self.screen_h) / PHONE_RES[1]) + self.left_y
+        x2 = int(x * self.screen_w / PHONE_RES[0]) + self.left_x
+        y2 = int(y * self.screen_h / PHONE_RES[1]) + self.left_y
         return (x2, y2)
 
     def down(self, originx, originy, x, y, touch_id):
