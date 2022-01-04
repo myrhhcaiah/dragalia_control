@@ -62,7 +62,7 @@ def set_device_globals():
         original_h = positions["h"]
 
         DRAGALIA_TOUCH_CENTER = (original_w/2, original_h/2)
-        DRAGALIA_TOUCH_MAX = original_w * .35
+        DRAGALIA_TOUCH_MAX = original_w * .25
         PHONE_RES = (original_w, original_h)
         POSITIONS = positions
         print("-----------initial position data START")
@@ -234,7 +234,7 @@ class JoystickHandler(object):
         if self.press_active:
             if input_data.left_stick_tilted():
                 def easing(x):
-                    if True:
+                    if False:
                         return x
                     if x >=0 :
                         return 1 - (1 - x) * (1 - x)
