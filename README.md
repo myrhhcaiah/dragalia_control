@@ -1,5 +1,5 @@
-### What is this?
-An app that mirrors your phone to your compute and maps controller input to the screen. Specifically, for Dragalia Lost.
+### What is 'Dragalia Control'?
+An app that mirrors your phone to your compute and maps controller input to the screen. Inputs are mapped specifically for Dragalia Lost.
 
 How does it work?
 - Detects Android devices and launches an instance of SCRCPY to show the device screen on their PC.
@@ -70,17 +70,25 @@ The entries "KSS1", "KSS2"... are the skill shares in Kaleidoscope. 1-4 are the 
 If you end up adding another device successfully, do get in contact with me either here, on youtube or on reddit, I'd be happy to add the position data to the next release.
 
 ### What are the button mappings?
+Note: *all actions are performed through manipulating the mouse*. There's code to attempt to interleave actions, but you might still get weirdness if you're moving and pressing a skill.
+
 The left stick is for movement. Pressing down quickly will attack. Pressing down for a long time will force strike.
+
 The right stick is for rolling. Flicking the stick quickly will result in a roll. Pressing down will trigger the dragon transformation.
 
 The face buttons (XYAB) are mapped to skills in order (e.g. X = s1, Y = s2, A = s3, B = s4).
-When the left shoulder bumper and the left shoulder trigger are held together, these buttons change to switch characters.
-When only the left shoulder bumper is held, these buttons change to the top row of the Kaleidoscope skill shares.
-When only the left shoulder trigger is held, these buttons change to the bottom row of the Kaleidoscope skill shares.
+
+When the left shoulder bumper and the left shoulder trigger are held together, the face buttons change to switch characters.
+
+When only the left shoulder bumper is held, the face buttons change to the top row of the Kaleidoscope skill shares.
+
+When only the left shoulder trigger is held, the face buttons change to the bottom row of the Kaleidoscope skill shares.
 
 The Start and Back buttons both map to the Menu button in game.
-The right shoulder bumper is for basic attacks. You cannot hold it down to forcestrike.
-The right shoulder trigger is a debug button. Press it if you've moved the SCRCPY window or if it's otherwise behaving poorly.
+
+The right shoulder bumper is for basic attacks. You can hold it down to force strike.
+
+The right shoulder trigger is a **debug** button. Press it if you've moved the SCRCPY window or if you've updated the positions.json (this will recalculate the app position and the data from positions.json).
 
 ### What if I don't have an Xbox-like Controller?
 Most controllers know how to pretend to be an Xbox Controller. So, if you have a Logitech or something, it probably just works.
@@ -95,3 +103,9 @@ The bulk of the Android phone interaction is mediated by scrcpy. It's incredible
 The Xbox controller detection code is based off of code in 'TensorKart', which is a deep learning MarioKart project: https://github.com/kevinhughes27/TensorKart/
 
 A small amount of code to read in data from the Android device was based on http://ktnr74.blogspot.com/2013/06/emulating-touchscreen-interaction-with.html. Note that the blog is largely concerned with using 'sendevent' for input, which is the first thing I tried.
+
+### What else?
+- I'd like to get rid of the debug button; it should be automatic.
+- There's also been reports that the stick isn't completely smooth. It seems like hardware thing, but I'd like to figure out how to alleviate it.
+- Multitouch. Even if you usually play with one finger, being able to move and tap a skill seems like the right thing with a controller.
+- Force striking is awkward. I'd like it to be "flick the right stick with a modifier".
