@@ -359,17 +359,10 @@ def handle_input(controller_output, phone_input, joystick_handler):
             LAST_SWIPE = now
 
             # all flicks are made equal
-            dx = input_data.RightJoystickX
-            dy = -input_data.RightJoystickY
-            if dx > 0:
-                dx = DRAGALIA_TOUCH_MAX
-            if dx < 0:
-                dx = -DRAGALIA_TOUCH_MAX
-            if dy > 0:
-                dy = DRAGALIA_TOUCH_MAX
-            if dy < 0:
-                dy = -DRAGALIA_TOUCH_MAX
+            dist = math.sqrt(input_data.RightJoystickX**2 + input_data.RightJoystickY**2)
 
+            dx = input_data.RightJoystickX * DRAGALIA_TOUCH_MAX/dist
+            dy = -input_data.RightJoystickY * DRAGALIA_TOUCH_MAX/dist
             x = DRAGALIA_TOUCH_CENTER[0] + dx
             y = DRAGALIA_TOUCH_CENTER[1] + dy
             phone_input.swipe(DRAGALIA_TOUCH_CENTER[0], DRAGALIA_TOUCH_CENTER[1], x, y)
