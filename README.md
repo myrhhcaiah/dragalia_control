@@ -1,5 +1,5 @@
 ### What is 'Dragalia Control'?
-An app that mirrors your phone to your compute and maps controller input to the screen. Inputs are mapped specifically for Dragalia Lost.
+An app that mirrors your phone to your computer and maps controller input to the screen. Inputs are mapped specifically for Dragalia Lost.
 
 How does it work?
 - Detects Android devices and launches an instance of SCRCPY to show the device screen on their PC.
@@ -66,6 +66,8 @@ The rest of the values are coordinate locations. It's the distance from the **to
 The entries "C1", "C2"... are character slots. The buttons on the top left of the screen for switching characters.
 The entries "S1", "S2"... are skill slots, at the bottom of the screen.
 The entries "KSS1", "KSS2"... are the skill shares in Kaleidoscope. 1-4 are the top row. 5-8 are the bottom row.
+
+You can hot reload edits with the right trigger.
 
 If you end up adding another device successfully, do get in contact with me either here, on youtube or on reddit, I'd be happy to add the position data to the next release.
 
