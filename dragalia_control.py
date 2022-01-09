@@ -12,6 +12,7 @@ import io
 import json
 import math
 import threading
+import atexit
 
 SCRCPY_ROOT = os.path.join(os.path.dirname(os.path.realpath(__file__)), "scrcpy")
 SCRCPY = os.path.join(SCRCPY_ROOT, "scrcpy.exe")
@@ -512,14 +513,20 @@ def start_controller():
         controller_thread = threading.Thread(target=_start_controller, args=())
         controller_thread.daemon = True
         controller_thread.start()
+
+        atexit.register(cleanup_processes)
     except KeyboardInterrupt:
         exit_app()
 
 
 def exit_app():
+    cleanup_processes()
+    sys.exit(1)
+
+
+def cleanup_processes():
     for p in PROCESSES:
         p.kill()
-    sys.exit(1)
 
 
 def _start_controller():
@@ -531,7 +538,7 @@ def _start_controller():
     pyautogui.PAUSE = 1 / REFRESH_HZ
     pyautogui.FAILSAFE = True
 
-    scrcpy = subprocess.Popen([SCRCPY, "-s", SERIAL, "-m", "1080", "-b", "4M", "--window-title", WINDOW_TITLE], creationflags=subprocess.CREATE_NEW_CONSOLE)
+    scrcpy = subprocess.Popen([SCRCPY, "-s", SERIAL, "-m", "1080", "-b", "4M", "--window-title", WINDOW_TITLE])
     PROCESSES.append(scrcpy)
 
     print("Starting")
