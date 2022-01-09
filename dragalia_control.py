@@ -39,6 +39,9 @@ RIGHT_BUMPER_TOUCH_ID = 2
 LEFT_STICK_TOUCH_ID = 1
 
 
+PROCESSES = []
+
+
 class JSONFile:
     @staticmethod
     def read_json(filename):
@@ -371,6 +374,7 @@ def handle_input(controller_output, phone_input, joystick_handler):
         RIGHT_BUMPER_DOWN = False
         if len(pressed) == 0:
             phone_input.release(RIGHT_BUMPER_TOUCH_ID)
+        RIGHT_BUMPER_DOWN = False
 
     # left trigger and bumper are modifiers
     # neither is pressed -> skills
@@ -498,6 +502,15 @@ def pick_device():
 
 
 def start_controller():
+    try:
+        _start_controller()
+    except KeyboardInterrupt:
+        for p in PROCESSES:
+            p.kill()
+        sys.exit(1)
+
+
+def _start_controller():
     set_device_globals()
     controller_output = XboxController()
 
@@ -506,7 +519,8 @@ def start_controller():
     pyautogui.PAUSE = 1 / REFRESH_HZ
     pyautogui.FAILSAFE = True
 
-    subprocess.Popen([SCRCPY, "-s", SERIAL, "-m", "1080", "-b", "4M", "--window-title", WINDOW_TITLE], creationflags=subprocess.CREATE_NEW_CONSOLE)
+    scrcpy = subprocess.Popen([SCRCPY, "-s", SERIAL, "-m", "1080", "-b", "4M", "--window-title", WINDOW_TITLE], creationflags=subprocess.CREATE_NEW_CONSOLE)
+    PROCESSES.append(scrcpy)
 
     print("Starting")
     print("Device: ", SERIAL)
@@ -536,9 +550,10 @@ def start_controller():
 
         print("path:", apk_path)
 
-        proc = subprocess.Popen([ADB, "-s", SERIAL, "shell"], stdin = subprocess.PIPE)
-        proc.stdin.write(f'export CLASSPATH="{apk_path}"\nexec app_process /system/bin jp.co.cyberagent.stf.Agent\n'.encode('utf-8'))
-        proc.stdin.flush()
+        stf_proc = subprocess.Popen([ADB, "-s", SERIAL, "shell"], stdin = subprocess.PIPE)
+        stf_proc.stdin.write(f'export CLASSPATH="{apk_path}"\nexec app_process /system/bin jp.co.cyberagent.stf.Agent\n'.encode('utf-8'))
+        stf_proc.stdin.flush()
+        PROCESSES.append(stf_proc)
 
         # Minitouch normally works fine with touch id, but with STFService it errors.
         # Need to think about whether this should be fixed
