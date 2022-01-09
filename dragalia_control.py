@@ -11,6 +11,7 @@ import sys
 import io
 import json
 import math
+import threading
 
 SCRCPY_ROOT = os.path.join(os.path.dirname(os.path.realpath(__file__)), "scrcpy")
 SCRCPY = os.path.join(SCRCPY_ROOT, "scrcpy.exe")
@@ -487,27 +488,38 @@ def pick_device():
         global USE_MINITOUCH
         input_mechanism = str(input_variable.get())
         USE_MINITOUCH = input_mechanism == input_mechanisms[1]
+
+        for widget in window.winfo_children():
+            widget.destroy()
+        run_button = tkinter.Button(window, text = 'Exit', command=exit_app)
+        run_button.grid(row=0, column=0, sticky="w")
+
         start_controller()
-    def exit():
-        sys.exit("No device")
 
     if attached_devices:
         run_button = tkinter.Button(window, text = 'Start', command=start)
         run_button.grid(row=row, column=0, sticky="w")
     else:
-        run_button = tkinter.Button(window, text = 'Error: No device detected', command=exit)
+        run_button = tkinter.Button(window, text = 'Error: No device detected', command=exit_app)
         run_button.grid(row=row, column=0, sticky="w")
 
+    window.protocol("WM_DELETE_WINDOW", exit_app)
     window.mainloop()
 
 
 def start_controller():
     try:
-        _start_controller()
+        controller_thread = threading.Thread(target=_start_controller, args=())
+        controller_thread.daemon = True
+        controller_thread.start()
     except KeyboardInterrupt:
-        for p in PROCESSES:
-            p.kill()
-        sys.exit(1)
+        exit_app()
+
+
+def exit_app():
+    for p in PROCESSES:
+        p.kill()
+    sys.exit(1)
 
 
 def _start_controller():
