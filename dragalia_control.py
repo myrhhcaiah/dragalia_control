@@ -367,11 +367,11 @@ def handle_input(controller_output, phone_input, joystick_handler):
 
     global RIGHT_BUMPER_DOWN
     if "RightBumper" in pressed:
-        RIGHT_BUMPER_DOWN = True
         x, y = POSITIONS["CENTER"]
-        phone_input.down(x, y, RIGHT_BUMPER_TOUCH_ID)
+        if not RIGHT_BUMPER_DOWN:
+            phone_input.down(x, y, RIGHT_BUMPER_TOUCH_ID)
+        RIGHT_BUMPER_DOWN = True
     elif RIGHT_BUMPER_DOWN:
-        RIGHT_BUMPER_DOWN = False
         if len(pressed) == 0:
             phone_input.release(RIGHT_BUMPER_TOUCH_ID)
         RIGHT_BUMPER_DOWN = False
