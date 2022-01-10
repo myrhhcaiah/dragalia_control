@@ -2,6 +2,7 @@ from xbox_controller import XboxController
 import subprocess
 import os
 from time import sleep
+from pyminitouch import safe_connection, safe_device, MNTDevice, CommandBuilder
 import tkinter
 import pyautogui
 from win32gui import GetForegroundWindow, FindWindow, GetWindowRect
@@ -10,12 +11,18 @@ import sys
 import io
 import json
 import math
+import threading
+import atexit
 
 SCRCPY_ROOT = os.path.join(os.path.dirname(os.path.realpath(__file__)), "scrcpy")
 SCRCPY = os.path.join(SCRCPY_ROOT, "scrcpy.exe")
 ADB = os.path.join(SCRCPY_ROOT, "adb.exe")
+STF_SERVICE_APK = os.path.join(os.path.dirname(os.path.realpath(__file__)), "stfservice", "STFService.apk")
+
 
 SERIAL = ""
+
+USE_MINITOUCH = False
 
 DRAGALIA_TOUCH_CENTER = None
 DRAGALIA_TOUCH_MAX = 200
@@ -23,6 +30,19 @@ PHONE_RES = None
 POSITIONS = {}
 
 POSITIONS_JSON = os.path.join(os.path.dirname(os.path.realpath(__file__)), "positions.json")
+
+
+SWIPE_COOLDOWN_MS = 20
+LAST_SWIPE = 0
+RIGHT_BUMPER_DOWN = False
+
+# keeping touches separate
+RIGHT_BUMPER_TOUCH_ID = 2
+LEFT_STICK_TOUCH_ID = 1
+
+
+PROCESSES = []
+
 
 class JSONFile:
     @staticmethod
@@ -138,6 +158,65 @@ class AdbDevice(object):
         raise NotImplementedError()
 
 
+
+class MinitouchAdbDevice(AdbDevice):
+    def __init__(self, serial=None):
+        super().__init__(serial=serial)
+        self.minitouch_device = None
+        self.mouse_is_down = False
+
+    def scale_xy(self, x, y):
+        x2 = int(x * int(self.minitouch_device.connection.max_x) / PHONE_RES[0])
+        y2 = int(y * int(self.minitouch_device.connection.max_y) / PHONE_RES[1])
+        return (x2, y2)
+
+    def down(self, x, y, touch_id):
+        self.mouse_is_down = True
+
+        x, y = self.scale_xy(x,y)
+        builder = CommandBuilder()
+        builder.down(touch_id, x, y, 50)
+        # builder.commit()
+        builder.publish(self.minitouch_device.connection)
+
+    def move(self, originx, originy, x, y, touch_id):
+        if not self.mouse_is_down:
+            self.mouse_is_down = True
+
+            x, y = self.scale_xy(originx, originy)
+            builder = CommandBuilder()
+            builder.down(touch_id, x, y, 50)
+            # builder.commit()
+            builder.publish(self.minitouch_device.connection)
+            return
+
+        x, y = self.scale_xy(x,y)
+        builder = CommandBuilder()
+        builder.move(touch_id, x, y, 50)
+        # builder.commit()
+        builder.publish(self.minitouch_device.connection)
+
+    def release(self, touch_id):
+        self.mouse_is_down = False
+
+        builder = CommandBuilder()
+        builder.up(touch_id)
+        # builder.commit()
+        builder.publish(self.minitouch_device.connection)
+
+    def tap(self, x, y):
+        x, y = self.scale_xy(x,y)
+        self.minitouch_device.tap([(x, y)])
+
+    def swipe(self, x, y, x2, y2):
+        x, y = self.scale_xy(x,y)
+        x2, y2 = self.scale_xy(x2,y2)
+        self.minitouch_device.ext_smooth_swipe([(x, y), (x2, y2)], duration=50, part=4)
+
+    def reset(self):
+        set_device_globals()
+
+
 class ScrcpyAdbDevice(AdbDevice):
     def __init__(self, serial=None, window_title = "DRAGALIA"):
         super().__init__(serial=serial)
@@ -223,7 +302,7 @@ class JoystickHandler(object):
     def __init__(self, adb_device):
         self.adb_device = adb_device
         self.press_active = False
-        self.touch_id = 1
+        self.touch_id = LEFT_STICK_TOUCH_ID
         self.last_touch_ms = 0
 
     def update(self, input_data):
@@ -276,10 +355,6 @@ def current_milli_time():
     return round(time.time() * 1000)
 
 
-SWIPE_COOLDOWN_MS = 20
-LAST_SWIPE = 0
-RIGHT_BUMPER_DOWN = False
-RIGHT_BUMPER_TOUCH_ID = 2
 def handle_input(controller_output, phone_input, joystick_handler):
     input_data = controller_output.read()
 
@@ -294,13 +369,14 @@ def handle_input(controller_output, phone_input, joystick_handler):
 
     global RIGHT_BUMPER_DOWN
     if "RightBumper" in pressed:
-        RIGHT_BUMPER_DOWN = True
         x, y = POSITIONS["CENTER"]
-        phone_input.down(x, y, RIGHT_BUMPER_TOUCH_ID)
+        if not RIGHT_BUMPER_DOWN:
+            phone_input.down(x, y, RIGHT_BUMPER_TOUCH_ID)
+        RIGHT_BUMPER_DOWN = True
     elif RIGHT_BUMPER_DOWN:
-        RIGHT_BUMPER_DOWN = False
         if len(pressed) == 0:
             phone_input.release(RIGHT_BUMPER_TOUCH_ID)
+        RIGHT_BUMPER_DOWN = False
 
     # left trigger and bumper are modifiers
     # neither is pressed -> skills
@@ -378,6 +454,8 @@ def pick_device():
     window.columnconfigure(0, weight=1, minsize=100)
     window.columnconfigure(1, weight=4, minsize=500)
 
+    row = 0
+
     attached_devices = AdbDevice.devices()
     # append true resolutions
     descriptive_devices = []
@@ -386,32 +464,72 @@ def pick_device():
         ratio = f"{size[1]/size[0]:.3f}"
         descriptive_devices.append(f"{device} {size} - ratio {ratio}")
 
-    tkinter.Label(window, text="Device").grid(row=0, sticky='w')
+    tkinter.Label(window, text="Device").grid(row=row, sticky='w')
     device_variable = tkinter.StringVar(window)
     if attached_devices:
         device_variable.set(descriptive_devices[0]) # default value
     device_dropdown = tkinter.OptionMenu(window, device_variable, *descriptive_devices)
-    device_dropdown.grid(row=0, column=1, sticky='nesw')
+    device_dropdown.grid(row=row, column=1, sticky='nesw')
+
+    row +=1
+
+    tkinter.Label(window, text="Input").grid(row=row, sticky='w')
+    input_variable = tkinter.StringVar(window)
+    input_mechanisms = ["Mouse", "Minitouch"]
+    input_variable.set(input_mechanisms[0]) # default value
+    device_dropdown = tkinter.OptionMenu(window, input_variable, *input_mechanisms)
+    device_dropdown.grid(row=row, column=1, sticky='nesw')
+
+    row +=1
 
     def start():
         global SERIAL
         serial_raw = str(device_variable.get()).split(" ")[0]
         SERIAL = serial_raw
+        global USE_MINITOUCH
+        input_mechanism = str(input_variable.get())
+        USE_MINITOUCH = input_mechanism == input_mechanisms[1]
+
+        for widget in window.winfo_children():
+            widget.destroy()
+        run_button = tkinter.Button(window, text = 'Exit', command=exit_app)
+        run_button.grid(row=0, column=0, sticky="w")
+
         start_controller()
-    def exit():
-        sys.exit("No device")
 
     if attached_devices:
         run_button = tkinter.Button(window, text = 'Start', command=start)
-        run_button.grid(row=1, column=0, sticky="w")
+        run_button.grid(row=row, column=0, sticky="w")
     else:
-        run_button = tkinter.Button(window, text = 'Error: No device detected', command=exit)
-        run_button.grid(row=1, column=0, sticky="w")
+        run_button = tkinter.Button(window, text = 'Error: No device detected', command=exit_app)
+        run_button.grid(row=row, column=0, sticky="w")
 
+    window.protocol("WM_DELETE_WINDOW", exit_app)
     window.mainloop()
 
 
 def start_controller():
+    try:
+        controller_thread = threading.Thread(target=_start_controller, args=())
+        controller_thread.daemon = True
+        controller_thread.start()
+
+        atexit.register(cleanup_processes)
+    except KeyboardInterrupt:
+        exit_app()
+
+
+def exit_app():
+    cleanup_processes()
+    sys.exit(1)
+
+
+def cleanup_processes():
+    for p in PROCESSES:
+        p.kill()
+
+
+def _start_controller():
     set_device_globals()
     controller_output = XboxController()
 
@@ -420,13 +538,60 @@ def start_controller():
     pyautogui.PAUSE = 1 / REFRESH_HZ
     pyautogui.FAILSAFE = True
 
-    subprocess.Popen([SCRCPY, "-s", SERIAL, "-m", "1080", "-b", "4M", "--window-title", WINDOW_TITLE], creationflags=subprocess.CREATE_NEW_CONSOLE)
+    scrcpy = subprocess.Popen([SCRCPY, "-s", SERIAL, "-m", "1080", "-b", "4M", "--window-title", WINDOW_TITLE])
+    PROCESSES.append(scrcpy)
 
-    phone_input = ScrcpyAdbDevice(serial = SERIAL, window_title = WINDOW_TITLE)
-    joystick_handler = JoystickHandler(phone_input)
-    while True:
-        handle_input(controller_output, phone_input, joystick_handler)
+    print("Starting")
+    print("Device: ", SERIAL)
+    print("Use Minitouch: ", USE_MINITOUCH)
 
+    if USE_MINITOUCH:
+        def print_and_execute(command):
+            print("running: ", command)
+            return subprocess.check_output(command)
+        # adb -s XXX install .\stfservice\STFService.apk
+        print_and_execute([ADB, "-s", SERIAL, "install", STF_SERVICE_APK])
+        # adb -s XXX shell am stopservice --user 0 -a jp.co.cyberagent.stf.ACTION_START -n jp.co.cyberagent.stf/.Service
+        try:
+            print_and_execute([ADB, "-s", SERIAL, "shell", "am", "stopservice", "--user", "0", "-a", "jp.co.cyberagent.stf.ACTION_START", "-n", "jp.co.cyberagent.stf/.Service"])
+        except Exception as e:
+            pass
+        # adb -s XXX shell am start-foreground-service --user 0 -a jp.co.cyberagent.stf.ACTION_START -n jp.co.cyberagent.stf/.Service
+        print_and_execute([ADB, "-s", SERIAL, "shell", "am", "start-foreground-service", "--user", "0", "-a", "jp.co.cyberagent.stf.ACTION_START", "-n", "jp.co.cyberagent.stf/.Service"])
+        # adb -s XXX forward tcp:1100 localabstract:stfservice
+        print_and_execute([ADB, "-s", SERIAL, "forward", "tcp:1100", "localabstract:stfservice"])
+        # adb -s XXX shell pm path jp.co.cyberagent.stf
+        apk_path_res = print_and_execute([ADB, "-s", SERIAL, "shell", "pm", "path", "jp.co.cyberagent.stf"])
+        # > package:/data/app/~~2bbZh8K8Hby6sPuD_ofIFg==/jp.co.cyberagent.stf-Ypqy3GyRRx5ig_7cZmG8AQ==/base.apk
+        print("path result:", apk_path_res)
+        # APK = /data/app/~~2bbZh8K8Hby6sPuD_ofIFg==/jp.co.cyberagent.stf-Ypqy3GyRRx5ig_7cZmG8AQ==/base.apk
+        apk_path = str(apk_path_res).split(":")[1].strip("'\\rn")
+
+        print("path:", apk_path)
+
+        stf_proc = subprocess.Popen([ADB, "-s", SERIAL, "shell"], stdin = subprocess.PIPE)
+        stf_proc.stdin.write(f'export CLASSPATH="{apk_path}"\nexec app_process /system/bin jp.co.cyberagent.stf.Agent\n'.encode('utf-8'))
+        stf_proc.stdin.flush()
+        PROCESSES.append(stf_proc)
+
+        # Minitouch normally works fine with touch id, but with STFService it errors.
+        # Need to think about whether this should be fixed
+        global LEFT_STICK_TOUCH_ID
+        global RIGHT_BUMPER_TOUCH_ID
+        LEFT_STICK_TOUCH_ID = 0
+        RIGHT_BUMPER_TOUCH_ID = 0
+
+        phone_input = MinitouchAdbDevice(serial = SERIAL)
+        joystick_handler = JoystickHandler(phone_input)
+        with safe_device(SERIAL) as minitouch_device:
+            phone_input.minitouch_device = minitouch_device
+            while True:
+                handle_input(controller_output, phone_input, joystick_handler)
+    else:
+        phone_input = ScrcpyAdbDevice(serial = SERIAL, window_title = WINDOW_TITLE)
+        joystick_handler = JoystickHandler(phone_input)
+        while True:
+            handle_input(controller_output, phone_input, joystick_handler)
 
 if __name__ == '__main__':
     pick_device()
