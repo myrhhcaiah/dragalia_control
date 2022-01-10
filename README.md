@@ -3,7 +3,8 @@ An app that mirrors your phone to your computer and maps controller input to the
 
 How does it work?
 - Detects Android devices and launches an instance of SCRCPY to show the device screen on their PC.
-- Reads controller input from a XBox-like controller and forwards them to the SCRCPY window as useful Dragalia Lost input.
+- Reads controller input from a XBox-like controller and it to Dragalia Lost touchscreen input.
+- Input is sent to the phone either directly through magic or via mouse input to the SCRCPY window.
 
 See it in action on YouTube: https://youtu.be/Jt_tPyQo_gA 
 
@@ -21,10 +22,10 @@ You really want quick turn off (180 and 90).
 4. Open Dragalia Lost on your phone. Yes it needs to be open first.
 5. Run "dragalia_control.exe" from the place you unzipped it.
 4. You'll probably get a prompt on your phone asking you to 'authorize your pc'. Accept.
-5. A very ugly UI should appear with a dropdown list of phones. If you only have one phone, press 'Start'.
+5. A very ugly UI should appear with two dropdowns: 'device' and 'input. Device should be your phone. Input can either be 'Mouse' or 'Minitouch'. Mouse is less buggy, but has a little more latency; Minitouch the reverse.
 6. It will take a few seconds to start up, but you should see your phone screen in a SCRCPY window.
-7. Pressing your controller buttons should move your mouse around.
-8. Drop into a level and go nuts. Button mappings are described in 'What are the button mappings?' below.
+7. Pressing your controller buttons should move your character around, etc.
+8. Drop into a level and go nuts. I recommend something easy like dogwalking to get used to the controls. Button mappings are described in 'What are the button mappings?' below.
 
 
 ### What if my device isn't supported?
